@@ -1,42 +1,55 @@
 import logging
+import re
 from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-# Create a logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Create a FileHandler
 file_handler = logging.FileHandler('app.log')
 file_handler.setLevel(logging.INFO)
 
-# Create a Formatter and add it to the FileHandler
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 
-# Add the FileHandler to the logger
 logger.addHandler(file_handler)
 
 INIT_URL = "https://www.cncbinternational.com/home/en/index.jsp"
 BASE_URL = "https://www.cncbinternational.com"
-removal_strs = ["fragment", "tc/", "sc/", ".doc", ".jpg", ".png", ".apk"]
+REMOVAL_STRS = ["fragment", "tc/", "sc/", ".doc", ".jpg", ".png", ".apk"]
+DESTINATION_DIR = "pdf_files"
 
 url_list = [INIT_URL]
 traversed_url_list = []
 all_pdf_links = []
 
 def contains_any(string, substrings):
-    """
-    filter out urls containing any in list of keywords
+    """Checks if any substring from a list is present in a given string.
+
+    Args:
+        string (str): The string to search in.
+        substrings (list): A list of substrings to search for.
+
+    Returns:
+        bool: True if any substring is found, False otherwise.
     """
     return any(substr in string for substr in substrings)
 
 def is_valid_url(check_url, timeout=5):
-    """
-    check if url is callable
+    """Checks if a given URL is valid and reachable.
+
+    Args:
+        check_url (str): The URL to validate.
+        timeout (int, optional): The timeout for the request in seconds. Defaults to 5.
+
+    Returns:
+        bool: True if the URL is valid and reachable, False otherwise.
+
+    Logs:
+        Info: The status of the URL check.
     """
     try:
         response = requests.head(check_url, timeout=timeout, allow_redirects=True)
@@ -51,8 +64,16 @@ def is_valid_url(check_url, timeout=5):
         return False
 
 def filter_unique_destinations(urls):
-    """
-    filter dupilicate redirect urls
+    """Filters out duplicate redirect URLs from a list of URLs.
+
+    Args:
+        urls (list): A list of URLs to filter.
+
+    Returns:
+        list: A list of unique destination URLs after following redirects.
+
+    Logs:
+        Info: Any errors encountered while accessing URLs.
     """
     unique_destinations = []
 
@@ -72,8 +93,26 @@ def filter_unique_destinations(urls):
     return unique_destinations
 
 def recursive_url_fetcher(urls):
-    """
-    find all pdf like links
+    """Recursively fetches and processes URLs to find all PDF-like links.
+
+    This function traverses through the given URLs, extracts links from their HTML content,
+    and recursively processes these links. It identifies PDF links and adds them to a global list.
+
+    Args:
+        urls (list): A list of URLs to process.
+
+    Global Variables:
+        all_pdf_links (list): Stores all found PDF links.
+        traversed_url_list (list): Keeps track of all visited URLs.
+        REMOVAL_STRS (list): Strings used to filter out unwanted URLs.
+        BASE_URL (str): The base URL used for joining relative URLs.
+
+    Logs:
+        Info: Various stages of the URL processing.
+
+    Note:
+        This function modifies global variables and doesn't return a value directly.
+        It recursively calls itself with new sets of URLs.
     """
     logger.info(len(urls))
     logger.info(len(all_pdf_links))
@@ -83,9 +122,9 @@ def recursive_url_fetcher(urls):
         # base case: empty list to iterate on direct return
         return
 
-    # optimization case: prune urls that have been visited before or contain certain str
+    # base case: prune urls that have been visited before or contain certain str
 
-    urls = set([url for url in urls if not contains_any(url.lower(), removal_strs)])
+    urls = set([url for url in urls if not contains_any(url.lower(), REMOVAL_STRS)])
 
     urls = set([url for url in urls if url not in traversed_url_list])
 
@@ -116,7 +155,6 @@ def recursive_url_fetcher(urls):
                     if len(anchor_list) > 0:
                         href_list = set([anchor.get("href") for anchor in anchor_list])
                         # get the href link, append root and check if valid link before adding to updated_link_list
-
                         for link in href_list:
                             if link and "#" not in link:
                                 full_link = urljoin(BASE_URL, link)
@@ -128,7 +166,7 @@ def recursive_url_fetcher(urls):
                                     and str(normalized_url) not in traversed_url_list:
                                     updated_link_set.append(normalized_url)
             except requests.exceptions.HTTPError as e:
-                logger.info(f"Http Error: {e}")
+                logger.info(f"HTTP Error: {e}")
             except requests.exceptions.ConnectionError as e:
                 logger.info(f"Error Connecting: {e}")
             except requests.exceptions.Timeout as e:
@@ -136,6 +174,7 @@ def recursive_url_fetcher(urls):
             except requests.exceptions.RequestException as e:
                 logger.info(f"Something went wrong: {e}")
 
+    # recursive case
     uniq_dest_url_list = filter_unique_destinations(list(set(updated_link_set)))
 
     recursive_url_fetcher(list(set(uniq_dest_url_list)))
