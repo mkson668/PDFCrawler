@@ -1,6 +1,8 @@
 import re
 import requests
-
+import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class FileDownloader:
     def __init__(self, destination, logger):
@@ -12,6 +14,26 @@ class FileDownloader:
         """
         self.destination = destination
         self.logger = logger
+
+    def requests_retry_session(
+        self,
+        retries=3,
+        backoff_factor=0.3,
+        status_forcelist=(500, 502, 503, 504),
+        session=None,
+    ):
+        session = session or requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
 
     def download_file(self, url, filename):
         """
@@ -28,7 +50,8 @@ class FileDownloader:
             requests.RequestException: If there's an error during the download process.
         """
         try:
-            response = requests.get(url, stream=True, timeout=10)
+            session = self.requests_retry_session()
+            response = session.get(url, stream=True, timeout=10)
             response.raise_for_status()
 
             # Open the file in binary write mode
@@ -38,10 +61,19 @@ class FileDownloader:
                     # Write each chunk to the file
                     file.write(chunk)
 
-            self.logger.info(f"File downloaded successfully: {filename}")
-            return True
+            # Check if the file exists and has content
+            if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                self.logger.info(f"File downloaded successfully: {filename}")
+                return True
+            else:
+                self.logger.info(f"File download failed or file is empty: {filename}")
+                return False
+
         except requests.RequestException as e:
             self.logger.info(f"Error downloading file: {e}")
+            return False
+        except IOError as e:
+            self.logger.info(f"Error writing file: {e}")
             return False
 
     def validate_pdf_filename(self, filename):
@@ -75,9 +107,15 @@ class FileDownloader:
         result_json = []
         for file_idx, file_url in enumerate(file_url_arr):
             self.logger.info(f"running {file_url}")
-            print(file_idx)
+            self.logger.info(file_idx)
             entry = {}
             f_name = file_url.split("/")[-1]
+
+            if os.path.exists(f"pdf_files/{f_name}"):
+                # edge case; only run set on full URL path fails to catch duplicate pdf_file names
+                # we will assume that the files are identical as they have the same name 
+                continue
+
             if not self.validate_pdf_filename(f_name):
                 f_name = f"tmp_fn_{f_name_cnt}.pdf"
                 f_name_cnt += 1
@@ -91,4 +129,5 @@ class FileDownloader:
             else:
                 entry["dl_status"] = False
             result_json.append(entry)
+            self.logger.info(f"completed {file_url}")
         return result_json
