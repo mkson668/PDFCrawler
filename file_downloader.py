@@ -4,6 +4,7 @@ import os
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+
 class FileDownloader:
     def __init__(self, destination, logger):
         """
@@ -31,8 +32,8 @@ class FileDownloader:
             status_forcelist=status_forcelist,
         )
         adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
         return session
 
     def download_file(self, url, filename):
@@ -113,7 +114,7 @@ class FileDownloader:
 
             if os.path.exists(f"pdf_files/{f_name}"):
                 # edge case; only run set on full URL path fails to catch duplicate pdf_file names
-                # we will assume that the files are identical as they have the same name 
+                # we will assume that the files are identical as they have the same name
                 continue
 
             if not self.validate_pdf_filename(f_name):
