@@ -1,6 +1,6 @@
 import logging
-import pandas as pd
 import json
+import pandas as pd
 from crawler import RecursiveUrlFetcher
 from file_downloader import FileDownloader
 
@@ -23,9 +23,11 @@ if __name__ == "__main__":
     REMOVAL_STRS = ["fragment", "tc/", "sc/", ".doc", ".jpg", ".png", ".apk"]
     DESTINATION_DIR = "pdf_files"
 
-    # fetcher = RecursiveUrlFetcher(INIT_URL, BASE_URL, REMOVAL_STRS, DESTINATION_DIR, logger)
-    # fetcher.fetch_all_urls()
-    # fetcher.save_results()
+    fetcher = RecursiveUrlFetcher(
+        INIT_URL, BASE_URL, REMOVAL_STRS, DESTINATION_DIR, logger
+    )
+    fetcher.fetch_all_urls()
+    fetcher.save_results()
 
     pdf_df = pd.read_excel("pdf_links.xlsx")
 
