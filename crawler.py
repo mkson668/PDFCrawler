@@ -5,7 +5,6 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-
 class RecursiveUrlFetcher:
     def __init__(
         self, init_url, base_url, removal_strs, destination_dir, logger=None
