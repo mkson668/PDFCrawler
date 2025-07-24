@@ -12,6 +12,7 @@ class FileDownloader:
 
         Args:
             destination (str): The destination directory where files will be saved.
+            logger (logging.Logger): logger instance to record file download status.
         """
         self.destination = destination
         self.logger = logger
@@ -23,6 +24,15 @@ class FileDownloader:
         status_forcelist=(500, 502, 503, 504),
         session=None,
     ):
+        """
+        Creates a request session object to automatically retry HTTP requests with user defined behaviour
+
+        Args: 
+            retries (int): max number of retries attempts
+            backoff_factor (float): factor to apply exponential delay between retries
+            status_forcelist (Tuple[int]): HTTP status codes that should trigger a retry
+            session (requests.Session): an optional request.Session to be provided for reconfiguration
+        """
         session = session or requests.Session()
         retry = Retry(
             total=retries,
@@ -66,9 +76,8 @@ class FileDownloader:
             if os.path.exists(filename) and os.path.getsize(filename) > 0:
                 self.logger.info(f"File downloaded successfully: {filename}")
                 return True
-            else:
-                self.logger.info(f"File download failed or file is empty: {filename}")
-                return False
+            self.logger.info(f"File download failed or file is empty: {filename}")
+            return False
 
         except requests.RequestException as e:
             self.logger.info(f"Error downloading file: {e}")

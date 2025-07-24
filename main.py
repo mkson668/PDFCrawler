@@ -37,12 +37,12 @@ if __name__ == "__main__":
 
     results = downloader.download_all_files(pdf_df["pdf_link"])
 
-    dl_fname = "result_dl.json"
+    DL_FNAME = "result_dl.json"
 
     try:
-        with open(dl_fname, "w", encoding="utf-8") as f:
+        with open(DL_FNAME, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
-        print(f"Data successfully saved to {dl_fname}")
+        print(f"Data successfully saved to {DL_FNAME}")
     except IOError as e:
         print(f"Error saving data to JSON: {e}")
 
